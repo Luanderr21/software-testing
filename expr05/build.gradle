@@ -1,0 +1,75 @@
+plugins {
+    id "java"
+    id "com.github.spotbugs" version "$spotbugspluginVersion"
+    id "info.solidsoft.pitest" version "1.7.4"
+}
+
+group 'com.ctgu'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.0.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.0.3'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.0.3'
+    spotbugsPlugins "com.h3xstream.findsecbugs:findsecbugs-plugin:$findsecbugspluginVersion"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "utf-8"
+}
+
+spotbugs {
+    toolVersion = "$spotbugsVersion"
+    ignoreFailures = false
+    showStackTraces = true
+    showProgress = true
+    effort = 'default'
+    reportLevel = 'low'
+    reportsDir = file("$buildDir/reports/spotbugs")
+    maxHeapSize = '2g'
+    extraArgs = [ '-nested:false' ]
+    jvmArgs = [ '-Duser.language=en' ]
+}
+spotbugsTest {
+    reports {
+        html {
+            stylesheet = 'fancy-hist.xsl'
+        }
+    }
+}
+spotbugsMain {
+    reports {
+        html {
+            stylesheet = 'fancy-hist.xsl'
+        }
+    }
+}
+
+apply from: "$rootDir/gradle/config/scripts/style.gradle"
+apply from: "$rootDir/gradle/config/scripts/coverage.gradle"
+coverage.excludePackages = [
+]
+coverage.excludeClasses = [
+]
+style.excludePackages = [
+]
+style.excludeClasses = [
+]
+
+pitest {
+    targetClasses = ['com.ctgu.expr05.*']
+    threads = 4
+    outputFormats = ['HTML']
+    timestampedReports = false
+    junit5PluginVersion = '0.15'
+}
