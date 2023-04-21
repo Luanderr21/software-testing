@@ -1,0 +1,187 @@
+plugins {
+    id 'application'
+    id 'java'
+    id 'eclipse'
+    id 'pmd'
+    id "com.github.spotbugs" version "$spotbugspluginVersion"
+    id "info.solidsoft.pitest" version "1.7.4"
+    
+}
+
+sourceSets {
+    defaultTest {
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+            srcDir file('src/default-test/java')
+        }
+        resources.srcDir file('src/default-test/resources')
+        
+    }
+}
+
+configurations {
+    defaultTestCompile.extendsFrom testCompile
+    defaultTestImplementation.extendsFrom testImplementation
+    defaultTestRuntime.extendsFrom testRuntime
+    
+    cucumberRuntime {
+        extendsFrom testImplementation
+    }
+}
+
+repositories {
+    mavenLocal()
+    maven{url 'https://maven.aliyun.com/repository/public'}
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+dependencies {
+    implementation "com.google.guava:guava:$guavaVersion"
+
+    compileOnly "com.github.spotbugs:spotbugs-annotations:$spotbugsAnnotationsVersion"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
+    testImplementation("org.assertj:assertj-core:$assertJVersion")
+    testImplementation("org.mockito:mockito-core:$mockitoVersion")
+
+    testImplementation "io.cucumber:cucumber-java:$cucumberVersion"
+    testImplementation "io.cucumber:cucumber-junit:$cucumberVersion"
+
+    spotbugsPlugins "com.h3xstream.findsecbugs:findsecbugs-plugin:$findsecbugspluginVersion"
+}
+
+task defaultTest(type: Test) {
+    testClassesDirs = sourceSets.defaultTest.output.classesDirs
+    classpath = sourceSets.defaultTest.runtimeClasspath
+}
+
+tasks.withType(JavaCompile){
+    options.encoding("utf-8")
+}
+defaultTest {
+    useJUnitPlatform()
+}
+//test.dependsOn defaultTest
+
+tasks.named('test') {
+    // Use JUnit Platform for unit tests.
+    useJUnitPlatform()
+}
+
+task cucumber() {
+    dependsOn assemble, compileTestJava
+    doLast {
+        javaexec {
+            main = "io.cucumber.core.cli.Main"
+            classpath = configurations.cucumberRuntime + sourceSets.main.output + sourceSets.test.output
+            args = ['--plugin', 'pretty', '--glue', 'nl.tudelft.jpacman.e2e.framework', 'src/test/resources']
+        }
+    }
+}
+
+pmd {
+    ruleSetFiles "pmd-rules.xml"
+    ruleSets = []
+}
+
+apply from: "$rootDir/gradle/config/scripts/style.gradle"
+apply from: "$rootDir/gradle/config/scripts/coverage.gradle"
+coverage.excludePackages = [
+]
+
+coverage.excludeClasses = [
+]
+
+style.excludePackages = [
+]
+
+style.excludeClasses = [
+]
+
+jacocoTestReport {
+    executionData tasks.withType(Test)
+    reports {
+        csv.enabled true
+    }
+}
+
+task staticAnalysis(type: GradleBuild) {
+    tasks = [
+        'clean',
+        'checkstyleMain',
+        'checkstyleTest',
+        'checkstyleDefaultTest',
+        'pmdMain',
+        'pmdTest',
+        'pmdDefaultTest',
+        'spotbugsMain',
+        'spotbugsTest',
+        'spotbugsDefaultTest',
+    ]
+}
+
+spotbugs {
+    toolVersion = "$spotbugsVersion"
+    ignoreFailures = false
+    showStackTraces = true
+    showProgress = true
+    effort = 'default'
+    reportLevel = 'low'
+    reportsDir = file("$buildDir/reports/spotbugs")
+//    onlyAnalyze = [ 'mimic.*' ]
+    maxHeapSize = '2g'
+    extraArgs = [ '-nested:false' ]
+    jvmArgs = [ '-Duser.language=en' ]
+}
+
+spotbugsTest {
+    reports {
+        html {
+            stylesheet = 'fancy-hist.xsl'
+        }
+    }
+}
+spotbugsMain {
+    reports {
+        html {
+            stylesheet = 'fancy-hist.xsl'
+        }
+    }
+}
+
+spotbugsDefaultTest {
+    reports {
+        html {
+            stylesheet = 'fancy-hist.xsl'
+        }
+    }
+}
+
+
+mainClassName = 'nl.tudelft.jpacman.Launcher'
+jar {
+    archivesBaseName = 'Jpacman'//基本的文件名
+    archiveVersion = '0.0.3' //版本
+    manifest { //配置jar文件的manifest
+        attributes(
+                "Manifest-Version": 1.0,
+                'Main-Class': 'nl.tudelft.jpacman.Launcher' //指定main方法所在的文件
+        )
+    }
+    //打包依赖包
+    from {
+        (configurations.runtimeClasspath).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+}
+
+pitest {
+    targetClasses = ['nl.tudelft.jpacman.board.*']
+    threads = 4
+    outputFormats = ['HTML']
+    timestampedReports = true
+    junit5PluginVersion = '0.15'
+}
