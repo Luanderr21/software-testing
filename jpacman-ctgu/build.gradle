@@ -179,9 +179,9 @@ jar {
 }
 
 pitest {
-    targetClasses = ['nl.tudelft.jpacman.board.*']
+    targetClasses = ['nl.tudelft.jpacman.npc.*']
     threads = 4
     outputFormats = ['HTML']
-    timestampedReports = true
+    timestampedReports = false
     junit5PluginVersion = '0.15'
 }
